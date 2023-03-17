@@ -2,6 +2,7 @@ import request from 'supertest';
 import expect from 'expect';
 import {User} from '../src/interfaces/User';
 import ErrorResponse from '../src/interfaces/ErrorResponse';
+import MessageResponse from '../src/interfaces/MessageResponse';
 
 interface UserWithToken {
   user: User;

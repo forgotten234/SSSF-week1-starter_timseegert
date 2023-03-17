@@ -4,7 +4,7 @@ import {
   getAllCats,
   getCat,
   updateCat,
-  getCatsByUser,
+  //getCatsByUser,
 } from '../models/catModel';
 import {Request, Response, NextFunction} from 'express';
 import {Cat, PostCat} from '../../interfaces/Cat';
@@ -35,12 +35,49 @@ const catGet = async (req: Request, res: Response, next: NextFunction) => {
   }
 
   try {
-    const cat = await getCat(req.params.id);
+    const cat = await getCat(parseInt(req.params.id));
     res.json(cat);
   } catch (error) {
     next(error);
   }
 };
+
+const catPost = async (
+    req: Request<{}, {}, PostCat>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const errors = validationResult(req.body);
+      if (!errors.isEmpty()) {
+        const messages = errors
+          .array()
+          .map((error) => `${error.msg}: ${error.param}`)
+          .join(', ');
+        throw new CustomError(messages, 400);
+      }
+      if (!req.body.filename && req.file) {
+        req.body.filename = req.file.filename;
+      }
+      if (!req.body.lat) {
+        req.body.lat = res.locals.coords[0] as number;
+      }
+      if (!req.body.lng) {
+        req.body.lng = res.locals.coords[1] as number;
+      }
+      if(!req.body.owner) {
+        req.body.owner = (req.user as User).user_id;
+      }
+      const cat = await addCat(req.body);
+      
+      res.json({
+        message: 'cat uploaded',
+        id: cat
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 
 // TODO: create catPost function to add new cat
 // catPost should use addCat function from catModel
@@ -68,23 +105,73 @@ const catPut = async (
   try {
     const id = parseInt(req.params.id);
     const cat = req.body;
-    const result = await updateCat(
-      cat,
-      id,
-      (req.user as User).user_id,
-      (req.user as User).role
-    );
+
+    const user = req.user as User;
+    let result = false;
+    let actual_cat;
+    if(user.role == 'admin'){
+        result = await updateCat(
+            id,
+            cat,
+        );
+    } else if (user.role == 'user'){
+        let cat_for_checking = await getCat(id)
+        let number_to_check_user_id
+        if(cat_for_checking.owner !== undefined) {
+            console.log("lajdngljsd")
+            number_to_check_user_id = typeof(cat_for_checking.owner) === 'number' ? cat_for_checking.owner : cat_for_checking.owner.user_id
+        }
+        if(user.user_id === number_to_check_user_id){
+            result = await updateCat(
+                id,
+                cat,
+            );
+        } else {
+            throw new CustomError('not allowed to!', 400)
+        }
+    }
+    var message: MessageResponse
     if (result) {
-      const message: MessageResponse = {
+      message = {
         message: 'cat updated',
         id,
-      };
+      }
+    } else {
+        message = {
+            message: 'cat not updated',
+            id,
+        }
+    };
       res.json(message);
-    }
   } catch (error) {
     next(error);
   }
 };
+
+const catDelete = async (
+    req: Request<{id: number}, {}, {}>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        const messages = errors
+          .array()
+          .map((error) => `${error.msg}: ${error.param}`)
+          .join(', ');
+        throw new CustomError(messages, 400);
+      }
+  
+      const id = await deleteCat(req.params.id);
+      const message: MessageResponse = {
+        message: `Cat with id ${id} deleted`,
+      };
+      res.json({message, id: id});
+    } catch (error) {
+      next(error);
+    }
+  };
 
 // TODO: create catDelete function to delete cat
 // catDelete should use deleteCat function from catModel

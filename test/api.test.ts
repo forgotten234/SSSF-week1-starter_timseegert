@@ -154,4 +154,5 @@ describe('GET /api/v1', () => {
   it('should delete a cat as admin', async () => {
     await userDeleteCat(app, token, catID);
   });
+
 });

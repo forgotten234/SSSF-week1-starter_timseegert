@@ -5,11 +5,14 @@ import {
   getUser,
   updateUser,
 } from '../models/userModel';
-import {Request, Response, NextFunction} from 'express';
+import {Request, Response, NextFunction, response} from 'express';
 import CustomError from '../../classes/CustomError';
 import bcrypt from 'bcryptjs';
-import {User} from '../../interfaces/User';
-const salt = bcrypt.genSaltSync(12);
+import {PostUser, PutUser, User} from '../../interfaces/User';
+import {validationResult} from 'express-validator';
+import MessageResponse from '../../interfaces/MessageResponse';
+import { putUser } from '../../../test/userFunctions';
+const salt = bcrypt.genSalt(10)
 
 const userListGet = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -33,13 +36,50 @@ const userGet = async (
   }
 };
 
+const userPost = async (
+    req: Request<{}, {}, PostUser>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+        const errors = validationResult(req.body);
+        if (!errors.isEmpty()) {
+            const message = errors
+            .array()
+            .map((error) => `${error.msg}: ${error.param}`)
+            .join(', ');
+            throw new CustomError(message, 400);
+        }   
+
+        if(!req.body.role){
+            req.body.role = 'user'
+        }
+
+        const user = await addUser({
+            user_name: req.body.user_name,
+            email: req.body.email,
+            role: req.body.role,
+            password: await bcrypt.hash(req.body.password, 10)
+        });
+        const message: MessageResponse = {
+            message: `User with id ${user} created`,
+        };
+        res.json({
+            message,
+            user_id: user
+        })
+    } catch (error) {
+      next(error);
+    }
+  };
+
 // TDOD: create userPost function to add new user
 // userPost should use addUser function from userModel
 // userPost should use validationResult to validate req.body
 // userPost should use bcrypt to hash password
 
 const userPut = async (
-  req: Request<{id: number}, {}, User>,
+  req: Request<{id: number}, {}, PutUser>,
   res: Response,
   next: NextFunction
 ) => {
@@ -50,7 +90,7 @@ const userPut = async (
 
     const user = req.body;
 
-    const result = await updateUser(user, req.params.id);
+    const result = await updateUser(req.params.id, user);
     if (result) {
       res.json({
         message: 'user modified',
@@ -61,9 +101,61 @@ const userPut = async (
   }
 };
 
+const userPutCurrent = async (
+    req: Request<{}, {}, PutUser>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+        console.log((req.user as User).user_id)
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        const messages = errors
+          .array()
+          .map((error) => `${error.msg}: ${error.param}`)
+          .join(', ');
+        throw new CustomError(messages, 400);
+      }
+      const user = req.body
+      const result = await updateUser((req.user as User).user_id, user);
+      if (result) {
+        res.json({
+          message: 'user modified',
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  };
+
 // TODO: create userPutCurrent function to update current user
 // userPutCurrent should use updateUser function from userModel
 // userPutCurrent should use validationResult to validate req.body
+
+const userDelete = async (
+    req: Request<{id: number}, {}, {}>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        const messages = errors
+          .array()
+          .map((error) => `${error.msg}: ${error.param}`)
+          .join(', ');
+        throw new CustomError(messages, 400);
+      }
+  
+      const id = await deleteUser(req.params.id);
+      const message: MessageResponse = {
+        message: `User with id ${id} deleted`,
+      };
+      res.json(message);
+    } catch (error) {
+      next(error);
+    }
+  };
 
 // TODO: create userDelete function for admin to delete user by id
 // userDelete should use deleteUser function from userModel

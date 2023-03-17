@@ -2,8 +2,9 @@ import passport from 'passport';
 import {Strategy} from 'passport-local';
 import {Strategy as JWTStrategy, ExtractJwt} from 'passport-jwt';
 import bcrypt from 'bcryptjs';
-import {getUserLogin} from '../api/models/userModel';
+import {getUserLogin, getUser} from '../api/models/userModel';
 
+const passportJWT = require("passport-jwt");
 passport.use(
   new Strategy(async (username, password, done) => {
     try {
@@ -31,7 +32,13 @@ passport.use(
       secretOrKey: 'asdf',
     },
     (jwtPayload, done) => {
-      // console.log('payload', jwtPayload);
+        // const user = getUser(jwtPayload.id);
+        // try {
+        //     return done(null, user);
+        // } catch (err) {
+        //     return done(err);
+        // }
+      //console.log('payload', jwtPayload);
       done(null, jwtPayload);
     }
   )
